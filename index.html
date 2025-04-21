@@ -3,93 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Premium Number Lookup | Ahtisham</title>
+  <title>Premium DNC Lookup | Ahtisham</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="codex-bg"></div>
+  <nav class="navbar">
+    <div class="nav-brand">DNC Lookup</div>
+    <div class="nav-links">
+      <a href="#"><i class="fas fa-search"></i> Search</a>
+      <a href="#"><i class="fas fa-book"></i> BK Search</a>
+      <a href="#"><i class="fas fa-exchange-alt"></i> Transfers</a>
+      <a href="#"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    </div>
+  </nav>
+
   <div class="container">
     <div class="header">
       <h1><i class="fas fa-phone-alt"></i> Premium Number Lookup</h1>
-      <div class="creator">Created by <span>Ahtisham</span></div>
+      <div class="creator">created by <span>Ahtisham</span></div>
+      <div class="timestamp" id="current-time"></div>
     </div>
     
     <div class="input-group">
-      <input type="text" id="phoneNumber" placeholder="Enter USA Number (e.g. 5809192500)" pattern="\d*" maxlength="10">
+      <input type="text" id="phoneNumber" placeholder="Enter USA Number (e.g. 2012409040)" pattern="\d*" maxlength="10">
       <button onclick="lookupNumber()">
         <i class="fas fa-search"></i> Search
       </button>
     </div>
     
-    <div class="result-container">
-      <!-- Blacklist Status Section -->
-      <div class="result-section">
-        <h2><i class="fas fa-shield-alt"></i> Blacklist Status</h2>
-        <div class="status-grid">
-          <div class="status-item">
-            <span class="status-label">Phone:</span>
-            <span id="result-phone" class="status-value">-</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">State:</span>
-            <span id="result-state" class="status-value">-</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">DNC National:</span>
-            <span id="result-dnc-national" class="status-value">-</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">DNC State:</span>
-            <span id="result-dnc-state" class="status-value">-</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Litigator:</span>
-            <span id="result-litigator" class="status-value">-</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Blacklist:</span>
-            <span id="result-blacklist" class="status-value">-</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Owner Information Section -->
-      <div class="result-section">
-        <h2><i class="fas fa-user-tie"></i> Owner Information</h2>
-        <div id="owner-info">
-          <div class="owner-card">
-            <div class="owner-header">
-              <h3 id="owner-name">-</h3>
-              <div class="owner-meta">
-                <span id="owner-age">Age: -</span>
-                <span id="owner-dob">DOB: -</span>
-              </div>
-            </div>
-            
-            <div class="address-section">
-              <h4><i class="fas fa-home"></i> Address History</h4>
-              <div id="address-history">
-                <!-- Addresses will be inserted here -->
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Related Persons Section -->
-      <div class="result-section">
-        <h2><i class="fas fa-users"></i> Related Persons</h2>
-        <div id="related-persons" class="related-persons">
-          <!-- Related persons will be inserted here -->
-        </div>
-      </div>
+    <div class="result-container" id="result-container">
+      <!-- Results will be displayed here -->
     </div>
   </div>
 
-  <div class="watermark">CodeX</div>
-  
   <script src="script.js"></script>
 </body>
 </html>
