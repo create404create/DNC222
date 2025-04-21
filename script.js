@@ -10,12 +10,12 @@ const APIs = {
 function updateTime() {
   const now = new Date();
   const timeStr = now.toLocaleString('en-US', {
-    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).replace(/,/g, '');
+  });
   document.getElementById("current-time").textContent = timeStr;
 }
 setInterval(updateTime, 1000);
@@ -25,64 +25,55 @@ async function lookupNumber() {
   const phone = document.getElementById("phoneNumber").value.trim();
   const resultContainer = document.getElementById("result-container");
   
+  // Clear previous results
+  resultContainer.innerHTML = '';
+  resultContainer.style.display = 'none';
+  
   if (!phone) {
-    showResult("Please enter a phone number", "error");
+    showError("Please enter a phone number");
     return;
   }
   
   if (!/^\d{10}$/.test(phone)) {
-    showResult("Please enter a valid 10-digit USA number", "error");
+    showError("Please enter a valid 10-digit USA number");
     return;
   }
 
-  showResult(`
-    <div class="loader-content">
-      <i class="fas fa-spinner fa-spin"></i>
-      <div>Searching across premium databases...</div>
-      <div class="loader-bar"></div>
-    </div>
-  `, "loading");
+  showLoading();
 
   try {
     // Try premium API first
-    let data = await fetchWithRetry(`${APIs.premium}${phone}`);
+    let data = await fetchData(`${APIs.premium}${phone}`);
     
+    // If premium fails, fallback to standard APIs
     if (!data || data.error) {
-      // Fallback to standard APIs
       const [tcpaData, personData] = await Promise.all([
-        fetchWithRetry(`${APIs.tcpa}${phone}`),
-        fetchWithRetry(`${APIs.person}${phone}`)
+        fetchData(`${APIs.tcpa}${phone}`),
+        fetchData(`${APIs.person}${phone}`)
       ]);
       data = { ...tcpaData, ...personData };
+    }
+
+    // If we still have no data
+    if (!data || Object.keys(data).length === 0) {
+      throw new Error("No data available for this number");
     }
 
     displayResults(data);
   } catch (error) {
     console.error("Lookup error:", error);
-    showResult(`
-      <div class="error-content">
-        <i class="fas fa-exclamation-triangle"></i>
-        <div>
-          <h3>Error fetching data</h3>
-          <p>Please try again later</p>
-          ${error.message ? `<p class="error-detail">${error.message}</p>` : ''}
-        </div>
-      </div>
-    `, "error");
+    showError(error.message || "Error fetching data. Please try again later.");
   }
 }
 
-async function fetchWithRetry(url, retries = 2) {
+async function fetchData(url) {
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`API responded with ${response.status}`);
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
     return await response.json();
   } catch (error) {
-    if (retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return fetchWithRetry(url, retries - 1);
-    }
-    throw error;
+    console.error(`Failed to fetch from ${url}:`, error);
+    return null;
   }
 }
 
@@ -91,54 +82,54 @@ function displayResults(data) {
     <div class="result-section">
       <h2><i class="fas fa-shield-alt"></i> Compliance Status</h2>
       <div class="status-grid">
-        ${createStatusItem("Phone", formatPhoneNumber(data.phone))}
-        ${createStatusItem("State", data.state)}
-        ${createStatusItem("DNC National", data.ndnc, true)}
-        ${createStatusItem("DNC State", data.sdnc, true)}
-        ${createStatusItem("Litigator", data.type, true)}
-        ${createStatusItem("Blacklist", data.listed, true)}
+        ${createStatusItem("Phone", formatPhoneNumber(data.phone || 'N/A'))}
+        ${createStatusItem("State", data.state || 'N/A')}
+        ${createStatusItem("DNC National", data.ndnc || 'N/A', true)}
+        ${createStatusItem("DNC State", data.sdnc || 'N/A', true)}
+        ${createStatusItem("Litigator", data.type || 'N/A', true)}
+        ${createStatusItem("Blacklist", data.listed || 'N/A', true)}
       </div>
     </div>
   `;
 
-  if (data.owners?.length > 0) {
-    const owner = data.owners[0];
+  // Owner Information
+  if (data.owner || data.owners?.[0]) {
+    const owner = data.owner || data.owners[0];
     html += `
       <div class="result-section">
         <h2><i class="fas fa-user-tie"></i> Owner Information</h2>
         <div class="owner-card">
           <div class="owner-header">
             <h3>${owner.name || 'Unknown'}</h3>
-            ${owner.age ? `<span class="owner-age">Age: ${owner.age}</span>` : ''}
-            ${owner.dob ? `<span class="owner-dob">DOB: ${owner.dob}</span>` : ''}
+            ${owner.age ? `<span class="owner-meta">Age: ${owner.age}</span>` : ''}
+            ${owner.dob ? `<span class="owner-meta">DOB: ${owner.dob}</span>` : ''}
           </div>
           
-          <div class="address-history">
-            ${owner.currentAddress ? createAddressCard("LIVES AT", owner.currentAddress) : ''}
-            ${owner.previousAddresses?.map(addr => createAddressCard("LIVED AT", addr)).join('')}
-          </div>
+          ${owner.address ? createAddressCard("Current Address", owner.address) : ''}
+          ${owner.addresses?.map(addr => createAddressCard("Previous Address", addr)).join('') || ''}
         </div>
       </div>
     `;
   }
 
-  if (data.relatedPersons?.length > 0) {
+  // Related Persons
+  if (data.relatedPersons?.length > 0 || data.related?.length > 0) {
+    const related = data.relatedPersons || data.related;
     html += `
       <div class="result-section">
         <h2><i class="fas fa-users"></i> Related Persons</h2>
         <div class="related-persons">
-          ${data.relatedPersons.map(p => `<span class="related-person">${p}</span>`).join(' : ')}
+          ${related.map(p => `<span class="related-person">${p}</span>`).join(' : ')}
         </div>
       </div>
     `;
   }
 
-  showResult(html, "success");
+  showResult(html);
 }
 
 function createStatusItem(label, value, isStatus = false) {
-  if (!value) value = 'N/A';
-  const statusClass = isStatus ? (value.toLowerCase().includes('clean') ? 'status-clean' : 'status-listed') : '';
+  const statusClass = isStatus ? (value.toString().toLowerCase().includes('clean') ? 'status-clean' : 'status-listed') : '';
   return `
     <div class="status-item">
       <span class="status-label">${label}:</span>
@@ -160,14 +151,45 @@ function formatPhoneNumber(phone) {
   return phone?.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') || 'N/A';
 }
 
-function showResult(content, type) {
+function showLoading() {
+  const resultContainer = document.getElementById("result-container");
+  resultContainer.innerHTML = `
+    <div class="loading-state">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Searching premium databases...</p>
+      <div class="progress-bar"></div>
+    </div>
+  `;
+  resultContainer.style.display = "block";
+}
+
+function showResult(content) {
   const resultContainer = document.getElementById("result-container");
   resultContainer.innerHTML = content;
-  resultContainer.className = `result-container ${type}`;
+  resultContainer.style.display = "block";
+}
+
+function showError(message) {
+  const resultContainer = document.getElementById("result-container");
+  resultContainer.innerHTML = `
+    <div class="error-state">
+      <i class="fas fa-exclamation-triangle"></i>
+      <h3>Error fetching data</h3>
+      <p>${message}</p>
+      <button onclick="document.getElementById('phoneNumber').focus()">
+        <i class="fas fa-redo"></i> Try Again
+      </button>
+    </div>
+  `;
   resultContainer.style.display = "block";
 }
 
 // Input formatting
 document.getElementById("phoneNumber").addEventListener("input", function(e) {
   this.value = this.value.replace(/\D/g, '');
+});
+
+// Focus input on page load
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById("phoneNumber").focus();
 });
