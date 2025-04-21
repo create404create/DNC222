@@ -89,7 +89,7 @@ body {
   font-family: 'Orbitron', sans-serif;
   font-size: 1.8rem;
   color: var(--primary);
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,7 +110,7 @@ body {
 .timestamp {
   font-size: 0.8rem;
   color: rgba(255,255,255,0.5);
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .input-group {
@@ -160,18 +160,10 @@ button:hover {
 .result-container {
   margin-top: 30px;
   display: none;
+  animation: fadeIn 0.3s ease-out;
 }
 
-.result-container.loading {
-  background: rgba(0,0,0,0.3);
-}
-
-.result-container.error {
-  background: rgba(214, 48, 49, 0.1);
-  border: 1px solid rgba(214, 48, 49, 0.3);
-}
-
-.loader-content {
+.loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -181,12 +173,12 @@ button:hover {
   color: rgba(255,255,255,0.8);
 }
 
-.loader-content i {
+.loading-state i {
   font-size: 2rem;
   color: var(--primary);
 }
 
-.loader-bar {
+.progress-bar {
   width: 100%;
   height: 4px;
   background: rgba(255,255,255,0.1);
@@ -195,7 +187,7 @@ button:hover {
   margin-top: 15px;
 }
 
-.loader-bar::after {
+.progress-bar::after {
   content: '';
   display: block;
   width: 100%;
@@ -204,22 +196,27 @@ button:hover {
   animation: progress 1.5s ease-in-out infinite;
 }
 
-.error-content {
+.error-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 15px;
-  padding: 20px;
+  padding: 30px;
+  text-align: center;
   color: var(--danger);
 }
 
-.error-content i {
+.error-state i {
   font-size: 2rem;
 }
 
-.error-detail {
-  font-size: 0.8rem;
-  opacity: 0.8;
-  margin-top: 5px;
+.error-state button {
+  margin-top: 15px;
+  background: var(--danger);
+}
+
+.error-state button:hover {
+  background: #c0392b;
 }
 
 .result-section {
@@ -228,6 +225,7 @@ button:hover {
   padding: 20px;
   margin-bottom: 20px;
   border: 1px solid rgba(255,255,255,0.1);
+  animation: slideUp 0.3s ease-out;
 }
 
 .result-section h2 {
@@ -290,17 +288,12 @@ button:hover {
 .owner-header h3 {
   color: var(--primary);
   margin: 0;
+  font-size: 1.2rem;
 }
 
-.owner-age, .owner-dob {
+.owner-meta {
   font-size: 0.9rem;
   color: rgba(255,255,255,0.7);
-}
-
-.address-history {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .address-card {
@@ -308,6 +301,7 @@ button:hover {
   padding: 12px;
   border-radius: 6px;
   border-left: 2px solid var(--secondary);
+  margin-top: 10px;
 }
 
 .address-label {
@@ -329,6 +323,22 @@ button:hover {
 @keyframes progress {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 768px) {
