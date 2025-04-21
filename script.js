@@ -1,148 +1,173 @@
 // API Endpoints
-const tcpaApi = "https://api.uspeoplesearch.net/tcpa/v1?x=";
-const personApi = "https://api.uspeoplesearch.net/person/v3?x=";
-const premiumLookupApi = "https://premium_lookup-1-h4761841.deta.app/person?x=";
-const reportApi = "https://api.uspeoplesearch.net/tcpa/report?x=";
+const APIs = {
+  tcpa: "https://api.uspeoplesearch.net/tcpa/v1?x=",
+  person: "https://api.uspeoplesearch.net/person/v3?x=",
+  premium: "https://premium_lookup-1-h4761841.deta.app/person?x=",
+  report: "https://api.uspeoplesearch.net/tcpa/report?x="
+};
+
+// Update current time
+function updateTime() {
+  const now = new Date();
+  const timeStr = now.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).replace(/,/g, '');
+  document.getElementById("current-time").textContent = timeStr;
+}
+setInterval(updateTime, 1000);
+updateTime();
 
 async function lookupNumber() {
   const phone = document.getElementById("phoneNumber").value.trim();
-  const resultContainer = document.querySelector(".result-container");
+  const resultContainer = document.getElementById("result-container");
   
   if (!phone) {
-    showError("Please enter a phone number");
+    showResult("Please enter a phone number", "error");
     return;
   }
   
   if (!/^\d{10}$/.test(phone)) {
-    showError("Please enter a valid 10-digit USA number");
+    showResult("Please enter a valid 10-digit USA number", "error");
     return;
   }
 
-  // Show loading state
-  resultContainer.innerHTML = `
-    <div class="loader">
-      <i class="fas fa-spinner fa-spin"></i> 
-      <div>Searching across 4 databases...</div>
-      <div class="loader-progress"></div>
+  showResult(`
+    <div class="loader-content">
+      <i class="fas fa-spinner fa-spin"></i>
+      <div>Searching across premium databases...</div>
+      <div class="loader-bar"></div>
     </div>
-  `;
-  
+  `, "loading");
+
   try {
-    // Make all API calls in parallel
-    const [tcpaData, personData, premiumData] = await Promise.all([
-      fetchData(tcpaApi + phone),
-      fetchData(personApi + phone),
-      fetchData(premiumLookupApi + phone)
-    ]);
+    // Try premium API first
+    let data = await fetchWithRetry(`${APIs.premium}${phone}`);
     
-    // Update UI with all data
-    updateTCPAResults(tcpaData);
-    updatePersonResults(personData);
-    updatePremiumResults(premiumData);
-    
-    resultContainer.style.display = "block";
+    if (!data || data.error) {
+      // Fallback to standard APIs
+      const [tcpaData, personData] = await Promise.all([
+        fetchWithRetry(`${APIs.tcpa}${phone}`),
+        fetchWithRetry(`${APIs.person}${phone}`)
+      ]);
+      data = { ...tcpaData, ...personData };
+    }
+
+    displayResults(data);
   } catch (error) {
-    console.error("Error:", error);
-    showError("Error fetching data. Please try again.");
+    console.error("Lookup error:", error);
+    showResult(`
+      <div class="error-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div>
+          <h3>Error fetching data</h3>
+          <p>Please try again later</p>
+          ${error.message ? `<p class="error-detail">${error.message}</p>` : ''}
+        </div>
+      </div>
+    `, "error");
   }
 }
 
-async function fetchData(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`API Error: ${url}`);
-  return await response.json();
-}
-
-function updateTCPAResults(data) {
-  document.getElementById("result-phone").textContent = formatPhoneNumber(data.phone || 'N/A');
-  document.getElementById("result-state").textContent = data.state || 'N/A';
-  document.getElementById("result-dnc-national").textContent = data.ndnc || 'N/A';
-  document.getElementById("result-dnc-state").textContent = data.sdnc || 'N/A';
-  document.getElementById("result-litigator").textContent = data.type || 'N/A';
-  document.getElementById("result-blacklist").textContent = data.listed || 'N/A';
-  
-  // Add status colors
-  setStatusColor("result-dnc-national", data.ndnc);
-  setStatusColor("result-dnc-state", data.sdnc);
-  setStatusColor("result-litigator", data.type);
-  setStatusColor("result-blacklist", data.listed);
-}
-
-function updatePersonResults(data) {
-  if (!data || !data.owners) return;
-  
-  // Update primary owner info
-  const primaryOwner = data.owners[0];
-  if (primaryOwner) {
-    document.getElementById("owner-name").textContent = primaryOwner.name || 'N/A';
-    document.getElementById("owner-age").textContent = `Age: ${primaryOwner.age || '-'}`;
-    document.getElementById("owner-dob").textContent = `DOB: ${primaryOwner.dob || '-'}`;
-    
-    // Update address history
-    const addressHistory = document.getElementById("address-history");
-    addressHistory.innerHTML = '';
-    
-    if (primaryOwner.currentAddress) {
-      addressHistory.innerHTML += createAddressCard("LIVES AT", primaryOwner.currentAddress);
+async function fetchWithRetry(url, retries = 2) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`API responded with ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchWithRetry(url, retries - 1);
     }
-    
-    if (primaryOwner.previousAddresses) {
-      primaryOwner.previousAddresses.forEach(addr => {
-        addressHistory.innerHTML += createAddressCard("LIVED AT", addr);
-      });
-    }
-  }
-  
-  // Update related persons
-  if (data.relatedPersons) {
-    const relatedPersons = document.getElementById("related-persons");
-    relatedPersons.innerHTML = data.relatedPersons
-      .map(person => `<span class="related-person">${person}</span>`)
-      .join(' : ');
+    throw error;
   }
 }
 
-function updatePremiumResults(data) {
-  // This can be used to enhance the data from the premium API
-  // Add any additional premium data fields here
-}
-
-function createAddressCard(label, address) {
-  const parts = address.split(', ');
-  return `
-    <div class="address-card">
-      <div class="address-label">${label}</div>
-      <div class="address-details">
-        <div class="address-street">${parts[0] || ''}</div>
-        <div class="address-city">${parts.slice(1).join(', ') || ''}</div>
+function displayResults(data) {
+  let html = `
+    <div class="result-section">
+      <h2><i class="fas fa-shield-alt"></i> Compliance Status</h2>
+      <div class="status-grid">
+        ${createStatusItem("Phone", formatPhoneNumber(data.phone))}
+        ${createStatusItem("State", data.state)}
+        ${createStatusItem("DNC National", data.ndnc, true)}
+        ${createStatusItem("DNC State", data.sdnc, true)}
+        ${createStatusItem("Litigator", data.type, true)}
+        ${createStatusItem("Blacklist", data.listed, true)}
       </div>
     </div>
   `;
+
+  if (data.owners?.length > 0) {
+    const owner = data.owners[0];
+    html += `
+      <div class="result-section">
+        <h2><i class="fas fa-user-tie"></i> Owner Information</h2>
+        <div class="owner-card">
+          <div class="owner-header">
+            <h3>${owner.name || 'Unknown'}</h3>
+            ${owner.age ? `<span class="owner-age">Age: ${owner.age}</span>` : ''}
+            ${owner.dob ? `<span class="owner-dob">DOB: ${owner.dob}</span>` : ''}
+          </div>
+          
+          <div class="address-history">
+            ${owner.currentAddress ? createAddressCard("LIVES AT", owner.currentAddress) : ''}
+            ${owner.previousAddresses?.map(addr => createAddressCard("LIVED AT", addr)).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (data.relatedPersons?.length > 0) {
+    html += `
+      <div class="result-section">
+        <h2><i class="fas fa-users"></i> Related Persons</h2>
+        <div class="related-persons">
+          ${data.relatedPersons.map(p => `<span class="related-person">${p}</span>`).join(' : ')}
+        </div>
+      </div>
+    `;
+  }
+
+  showResult(html, "success");
 }
 
-function setStatusColor(elementId, value) {
-  const element = document.getElementById(elementId);
-  if (!element) return;
-  
-  const cleanValues = ['clean', 'no', 'false'];
-  if (cleanValues.includes(value?.toLowerCase())) {
-    element.classList.add('status-clean');
-  } else if (value) {
-    element.classList.add('status-listed');
-  }
+function createStatusItem(label, value, isStatus = false) {
+  if (!value) value = 'N/A';
+  const statusClass = isStatus ? (value.toLowerCase().includes('clean') ? 'status-clean' : 'status-listed') : '';
+  return `
+    <div class="status-item">
+      <span class="status-label">${label}:</span>
+      <span class="status-value ${statusClass}">${value}</span>
+    </div>
+  `;
+}
+
+function createAddressCard(label, address) {
+  return `
+    <div class="address-card">
+      <div class="address-label">${label}</div>
+      <div class="address-details">${address}</div>
+    </div>
+  `;
 }
 
 function formatPhoneNumber(phone) {
-  return phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+  return phone?.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') || 'N/A';
 }
 
-function showError(message) {
-  const resultContainer = document.querySelector(".result-container");
-  resultContainer.innerHTML = `<div class="error"><i class="fas fa-exclamation-circle"></i> ${message}</div>`;
+function showResult(content, type) {
+  const resultContainer = document.getElementById("result-container");
+  resultContainer.innerHTML = content;
+  resultContainer.className = `result-container ${type}`;
   resultContainer.style.display = "block";
 }
 
-// Auto-format phone number input
+// Input formatting
 document.getElementById("phoneNumber").addEventListener("input", function(e) {
   this.value = this.value.replace(/\D/g, '');
 });
